@@ -5,6 +5,29 @@ const { redirect } = require('express/lib/response');
 
 const router = express.Router();
 
+const validations = [
+  check('name')
+    .trim()
+    .isLength({min: 3})
+    .escape()
+    .withMessage('A name is required'),
+  check('email')
+    .trim()
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('A valid email is required'),
+  check('title')
+    .trim()
+    .isLength({min: 3})
+    .escape()
+    .withMessage('A title is required'),
+  check('message')
+    .trim()
+    .isLength({min: 5})
+    .escape()
+    .withMessage('A message is required'),
+];
+
 module.exports = params => {
   const { feedbackService } = params;
 
@@ -29,44 +52,43 @@ module.exports = params => {
     }
   });
 
-  router.post('/', [
-    check('name')
-      .trim()
-      .isLength({min: 3})
-      .escape()
-      .withMessage('A name is required'),
-    check('email')
-      .trim()
-      .isEmail()
-      .normalizeEmail()
-      .withMessage('A valid email is required'),
-    check('title')
-      .trim()
-      .isLength({min: 3})
-      .escape()
-      .withMessage('A title is required'),
-    check('message')
-      .trim()
-      .isLength({min: 5})
-      .escape()
-      .withMessage('A message is required'),
-  ],async (request, response) => {
-    const errors = validationResult(request);
-
-    if(!errors.isEmpty()) {
-      request.session.feedback = {
-        errors: errors.array(),
+  router.post('/', validations, async (request, response, next) => {
+    try {
+      if(!errors.isEmpty()) {
+        request.session.feedback = {
+          errors: errors.array(),
+        }
+        return response.redirect('/feedback')
       }
-      return response.redirect('/feedback')
+  
+      const { name, email, title, message } = request.body;
+      await feedbackService.addEntry(name, email, title, message);
+      request.session.feedback = {
+        message: 'Thank you for your feedback'
+      }
+  
+      return response.send('Feedback form posted');
+    } catch (err) {
+        return next(err);
     }
 
-    const { name, email, title, message } = request.body;
-    await feedbackService.addEntry(name, email, title, message);
-    request.session.feedback = {
-      message: 'Thank you for your feedback'
-    }
+    const errors = validationResult(request);
+  });
 
-    return response.send('Feedback form posted');
+  router.post('/api', validations, async (request, response, next) => {
+    try {
+      const errors = validationResult(request);
+      if(!errors.isEmpty()) {
+        return response.json({errors: errors.array()});
+      }
+      const { name, email, title, message } = request.body;
+      await feedbackService.addEntry(name, email, title, message);
+      const feedback = await feedbackService.getList();
+      return response.json({feedback, successMessage: 'Thank you for your feedback'});
+
+    } catch(err) {
+       return next(err)
+    }
   });
 
   return router;

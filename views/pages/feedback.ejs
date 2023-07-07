@@ -4,6 +4,7 @@
       <div class="maincontent">
         <h1>Send us feedback</h1>
 
+        <div>
         <% if(locals.errors) {%>
             <div class="alert alert-danger">
               <ul>
@@ -17,6 +18,7 @@
                 <%= successMessage %>
               </div>
         <%}%> 
+        </div>
 
         <form class="feedback-form" method="POST" action="/feedback">
           <div class="form-group">
